@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Split Kitchen</title>
+<style>
+:root{
+  --tile:#0d2b30;
+  --tile2:#12373d;
+  --line:rgba(255,255,255,.10);
+  --paper:#f2e7cd;
+  --ink:#16110c;
+  --flame:#ff5a1f;
+  --prep:#58d6a8;
+  --line-cook:#ffc247;
+  --bad:#e0374f;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--tile);}
+body{
+  font-family:var(--sans);color:#eaf4f2;
+  touch-action:manipulation;user-select:none;-webkit-user-select:none;
+}
+#app{
+  height:100dvh;display:flex;flex-direction:column;
+  background:
+    repeating-linear-gradient(0deg,transparent 0 38px,var(--line) 38px 39px),
+    repeating-linear-gradient(90deg,transparent 0 38px,var(--line) 38px 39px),
+    var(--tile);
+}
+.half{flex:1 1 0;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:8px;padding:10px 12px;}
+.half.b{transform:rotate(180deg);}
+.role{
+  font:700 10px/1 var(--sans);letter-spacing:.18em;text-transform:uppercase;
+  display:flex;justify-content:space-between;align-items:center;opacity:.75;
+}
+.half.a .role{color:var(--prep)}
+.half.b .role{color:var(--line-cook)}
+
+/* ---------- shared control look ---------- */
+.pad{
+  background:var(--tile2);border:1px solid var(--line);border-radius:14px;
+  display:flex;align-items:center;justify-content:center;flex-direction:column;
+  gap:2px;padding:6px;position:relative;overflow:hidden;
+  transition:transform .06s ease, background .12s ease;
+}
+.pad:active{transform:scale(.96)}
+.pad .e{font-size:26px;line-height:1}
+.pad .t{font:600 8px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;opacity:.6}
+.row{display:flex;gap:8px}
+.row>*{flex:1 1 0}
+
+/* ---------- prep side ---------- */
+.bins{height:64px}
+.board{
+  height:84px;border-style:dashed;border-color:rgba(88,214,168,.45);
+}
+.board.full{border-style:solid;background:#123c3a}
+.board.ready{border-color:var(--prep);background:#0f4a3f;box-shadow:inset 0 0 0 2px var(--prep)}
+.bar{position:absolute;left:0;bottom:0;height:4px;background:var(--prep);width:0%;transition:width .08s}
+.hint{font:600 9px/1.3 var(--mono);letter-spacing:.06em;opacity:.45;text-align:center}
+
+/* ---------- middle: pass counter + tickets ---------- */
+.mid{
+  flex:0 0 auto;padding:8px 12px 10px;
+  background:linear-gradient(#0a2226,#0a2226);
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+  display:flex;flex-direction:column;gap:8px;
+}
+.hud{display:flex;align-items:center;justify-content:space-between;font:700 11px/1 var(--mono);letter-spacing:.1em}
+.hud .clock{color:var(--paper)}
+.hud .sc{color:var(--prep)}
+.hud .ms{color:var(--bad);opacity:.8}
+.counter{display:flex;gap:8px;align-items:stretch}
+.slot{
+  flex:1 1 0;height:52px;border-radius:12px;border:1px dashed rgba(242,231,205,.28);
+  background:rgba(242,231,205,.04);display:flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:1px;
+}
+.slot.has{border-style:solid;border-color:rgba(242,231,205,.55);background:rgba(242,231,205,.10)}
+.slot .e{font-size:22px;line-height:1}
+.slot .t{font:600 7px/1 var(--mono);letter-spacing:.08em;opacity:.55}
+.rail{display:flex;gap:6px;height:66px;align-items:stretch;overflow:hidden}
+.ticket{
+  flex:1 1 0;background:var(--paper);color:var(--ink);border-radius:3px;
+  padding:5px 4px 0;display:flex;flex-direction:column;align-items:center;gap:2px;
+  box-shadow:0 3px 0 rgba(0,0,0,.35);position:relative;
+  animation:print .28s ease-out;
+}
+@keyframes print{from{transform:translateY(-70px);opacity:0}to{transform:none;opacity:1}}
+.ticket .dish{font-size:20px;line-height:1}
+.ticket .need{font-size:11px;line-height:1;letter-spacing:1px}
+.ticket .tbar{position:absolute;left:0;bottom:0;height:4px;background:#3aa17e;width:100%}
+.ticket.warn .tbar{background:var(--flame)}
+.ticket.dying{animation:shake .3s infinite}
+@keyframes shake{0%,100%{transform:none}50%{transform:translateX(2px)}}
+.rail .empty{
+  flex:1 1 0;border:1px dashed rgba(242,231,205,.15);border-radius:3px;
+}
+
+/* ---------- line-cook side ---------- */
+.cooker{height:70px;border-color:rgba(255,194,71,.35)}
+.cooker.on{background:#3a2410;border-color:var(--flame)}
+.cooker.done{background:#2c3d16;border-color:#9ede3f;box-shadow:inset 0 0 0 2px #9ede3f}
+.cooker.burnt{background:#2a1214;border-color:var(--bad);box-shadow:inset 0 0 0 2px var(--bad)}
+.cooker .bar{background:var(--flame)}
+.cooker.done .bar{background:#9ede3f}
+.plate{
+  height:64px;border-radius:999px;border:1px solid rgba(242,231,205,.3);
+  background:rgba(242,231,205,.06);display:flex;align-items:center;justify-content:center;gap:6px;
+  font-size:24px;
+}
+.plate:active{transform:scale(.97)}
+.hand{
+  height:44px;border-radius:12px;border:1px solid var(--line);background:var(--tile2);
+  display:flex;align-items:center;justify-content:center;gap:8px;font-size:20px;
+}
+.hand .lbl{font:600 9px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;opacity:.5}
+.btn{
+  border:none;border-radius:12px;font:800 12px/1 var(--sans);letter-spacing:.12em;
+  text-transform:uppercase;padding:0 14px;height:44px;color:var(--ink);background:var(--line-cook);
+}
+.btn:active{transform:scale(.96)}
+.btn.ghost{background:transparent;color:#eaf4f2;border:1px solid var(--line)}
+.flash{animation:flash .4s}
+@keyframes flash{0%,100%{filter:none}50%{filter:brightness(2.2) saturate(1.6)}}
+.nope{animation:nope .3s}
+@keyframes nope{0%,100%{transform:none}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+
+/* ---------- overlay ---------- */
+#overlay{
+  position:fixed;inset:0;background:rgba(6,24,27,.96);z-index:10;
+  display:flex;align-items:center;justify-content:center;padding:22px;
+}
+#overlay .card{max-width:340px;text-align:center}
+h1{font:800 30px/1 var(--sans);letter-spacing:-.02em;margin:0 0 6px}
+h1 span{color:var(--flame)}
+.sub{font:600 10px/1.6 var(--mono);letter-spacing:.12em;text-transform:uppercase;opacity:.5;margin-bottom:18px}
+.rules{font:400 13px/1.55 var(--sans);opacity:.85;text-align:left;margin:0 0 18px}
+.rules b{color:var(--prep)}
+.rules i{color:var(--line-cook);font-style:normal}
+.big{font:800 52px/1 var(--sans);color:var(--prep);margin:6px 0}
+#overlay .btn{width:100%;height:52px;background:var(--paper)}
+.hidden{display:none!important}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ============ TOP: LINE COOK (rotated) ============ -->
+  <div class="half b">
+    <div class="role"><span>Line cook</span><span id="bmsg"></span></div>
+    <div class="row">
+      <div class="pad cooker" data-cook="0"><div class="e">·</div><div class="t">burner 1</div><div class="bar"></div></div>
+      <div class="pad cooker" data-cook="1"><div class="e">·</div><div class="t">burner 2</div><div class="bar"></div></div>
+    </div>
+    <div class="plate" id="plate"></div>
+    <div class="row" style="align-items:stretch">
+      <div class="hand" id="hand" style="flex:2 1 0"><span class="lbl">hands empty</span></div>
+      <button class="btn ghost" id="trash" style="flex:0 0 52px;padding:0">🗑</button>
+      <button class="btn" id="serve" style="flex:1 1 0">Serve</button>
+    </div>
+  </div>
+
+  <!-- ============ MIDDLE: TICKETS + PASS COUNTER ============ -->
+  <div class="mid">
+    <div class="rail" id="rail"></div>
+    <div class="hud">
+      <span class="clock" id="clock">2:00</span>
+      <span class="sc" id="score">0 served</span>
+      <span class="ms" id="missed">0 lost</span>
+    </div>
+    <div class="counter" id="counter">
+      <div class="slot" data-slot="0"></div>
+      <div class="slot" data-slot="1"></div>
+      <div class="slot" data-slot="2"></div>
+    </div>
+  </div>
+
+  <!-- ============ BOTTOM: PREP ============ -->
+  <div class="half a">
+    <div class="role"><span>Prep</span><span id="amsg"></span></div>
+    <div class="row bins">
+      <div class="pad" data-bin="potato"><div class="e">🥔</div><div class="t">potato</div></div>
+      <div class="pad" data-bin="patty"><div class="e">🥩</div><div class="t">patty</div></div>
+      <div class="pad" data-bin="lettuce"><div class="e">🥬</div><div class="t">lettuce</div></div>
+    </div>
+    <div class="pad board" id="board"><div class="e">·</div><div class="t">board — grab something</div><div class="bar"></div></div>
+    <div class="hint" id="ahint">tap a bin → tap the board 3× → tap again to pass it up</div>
+  </div>
+
+</div>
+
+<div id="overlay">
+  <div class="card" id="ocard">
+    <h1>Split <span>Kitchen</span></h1>
+    <div class="sub">two players · one phone</div>
+    <p class="rules">
+      Sit facing each other. The top half is upside down on purpose — that's the <i>line cook</i>. The bottom half is <b>prep</b>.<br><br>
+      <b>Prep</b> taps a bin, taps the board three times to cut it, then taps once more to push it onto the pass counter.<br><br>
+      <i>Line cook</i> takes from the counter, drops it on a burner, pulls it off before it burns, adds it to the plate, and serves the matching ticket.<br><br>
+      Only three counter slots. Fill them up and prep is stuck.
+    </p>
+    <button class="btn" id="start">Start service</button>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+var ITEM = {
+  cut_potato:    {e:'🥔', t:'cut',    cook:'fried_potato'},
+  formed_patty:  {e:'🥩', t:'raw',    cook:'grilled_patty'},
+  shred_lettuce: {e:'🥬', t:'shred',  cook:null},
+  fried_potato:  {e:'🍟', t:'fried',  cook:null},
+  grilled_patty: {e:'🍖', t:'cooked', cook:null},
+  burnt:         {e:'⬛', t:'burnt',  cook:null}
+};
+var BIN = { potato:'cut_potato', patty:'formed_patty', lettuce:'shred_lettuce' };
+var RECIPES = [
+  {name:'FRIES',  dish:'🍟', need:['fried_potato']},
+  {name:'BURGER', dish:'🍔', need:['grilled_patty','shred_lettuce']},
+  {name:'DELUXE', dish:'🍱', need:['grilled_patty','fried_potato']}
+];
+
+var CHOPS = 3, COOK_T = 4.5, BURN_T = 4.5, ORDER_T = 40, GAME_T = 120, MAX_ORDERS = 4;
+
+var S, raf = null, last = 0, oid = 0;
+
+function fresh(){
+  return {
+    running:false, time:GAME_T, served:0, missed:0,
+    orders:[], spawnIn:1.5, gap:7,
+    board:null, counter:[null,null,null],
+    hand:null, cookers:[null,null], plate:[]
+  };
+}
+
+/* ---------- elements ---------- */
+var $ = function(s){ return document.querySelector(s); };
+var rail=$('#rail'), clockEl=$('#clock'), scoreEl=$('#score'), missedEl=$('#missed');
+var boardEl=$('#board'), plateEl=$('#plate'), handEl=$('#hand');
+var slots=[].slice.call(document.querySelectorAll('.slot'));
+var cookEls=[].slice.call(document.querySelectorAll('.cooker'));
+var overlay=$('#overlay'), ocard=$('#ocard');
+
+function bump(el, cls){
+  el.classList.remove(cls);
+  void el.offsetWidth;
+  el.classList.add(cls);
+}
+function say(who, txt){
+  var el = $(who === 'a' ? '#amsg' : '#bmsg');
+  el.textContent = txt;
+  clearTimeout(el._t);
+  el._t = setTimeout(function(){ el.textContent=''; }, 1200);
+}
+
+/* ---------- prep actions ---------- */
+document.querySelectorAll('[data-bin]').forEach(function(b){
+  b.addEventListener('click', function(){
+    if(!S.running) return;
+    if(S.board){ bump(boardEl,'nope'); say('a','board is busy'); return; }
+    S.board = { item: BIN[b.dataset.bin], chops: 0 };
+    render();
+  });
+});
+
+boardEl.addEventListener('click', function(){
+  if(!S.running || !S.board) return;
+  if(S.board.chops < CHOPS){
+    S.board.chops++;
+    bump(boardEl,'flash');
+  } else {
+    var i = S.counter.indexOf(null);
+    if(i === -1){ bump(boardEl,'nope'); say('a','counter is full'); return; }
+    S.counter[i] = S.board.item;
+    S.board = null;
+    bump(slots[i],'flash');
+  }
+  render();
+});
+
+/* ---------- line cook actions ---------- */
+slots.forEach(function(sl, i){
+  sl.addEventListener('click', function(){
+    if(!S.running) return;
+    if(!S.counter[i]) return;
+    if(S.hand){ bump(handEl,'nope'); say('b','hands are full'); return; }
+    S.hand = S.counter[i];
+    S.counter[i] = null;
+    render();
+  });
+});
+
+cookEls.forEach(function(ce, i){
+  ce.addEventListener('click', function(){
+    if(!S.running) return;
+    var c = S.cookers[i];
+    if(c){
+      if(S.hand){ bump(handEl,'nope'); say('b','hands are full'); return; }
+      if(c.state === 'cooking'){ bump(ce,'nope'); say('b','not ready'); return; }
+      S.hand = (c.state === 'burnt') ? 'burnt' : ITEM[c.item].cook;
+      S.cookers[i] = null;
+      render(); return;
+    }
+    if(!S.hand){ bump(ce,'nope'); return; }
+    if(!ITEM[S.hand].cook){ bump(ce,'nope'); say('b','that does not cook'); return; }
+    S.cookers[i] = { item:S.hand, t:0, state:'cooking' };
+    S.hand = null;
+    render();
+  });
+});
+
+plateEl.addEventListener('click', function(){
+  if(!S.running) return;
+  if(!S.hand){ bump(plateEl,'nope'); return; }
+  if(S.plate.length >= 2){ bump(plateEl,'nope'); say('b','plate is full'); return; }
+  if(ITEM[S.hand].cook){ bump(plateEl,'nope'); say('b','cook it first'); return; }
+  if(S.hand === 'burnt'){ bump(plateEl,'nope'); say('b','bin it'); return; }
+  S.plate.push(S.hand);
+  S.hand = null;
+  render();
+});
+
+$('#trash').addEventListener('click', function(){
+  if(!S.running) return;
+  if(S.hand){ S.hand = null; }
+  else if(S.plate.length){ S.plate = []; }
+  render();
+});
+
+$('#serve').addEventListener('click', function(){
+  if(!S.running || !S.plate.length) return;
+  var best = -1, bestT = 1e9;
+  for(var i=0;i<S.orders.length;i++){
+    if(match(S.orders[i].need, S.plate) && S.orders[i].t < bestT){ best=i; bestT=S.orders[i].t; }
+  }
+  if(best === -1){ bump(plateEl,'nope'); say('b','no ticket for that'); return; }
+  S.orders.splice(best,1);
+  S.plate = [];
+  S.served++;
+  bump(plateEl,'flash');
+  render();
+});
+
+function match(need, plate){
+  if(need.length !== plate.length) return false;
+  var a = need.slice().sort(), b = plate.slice().sort();
+  for(var i=0;i<a.length;i++) if(a[i]!==b[i]) return false;
+  return true;
+}
+
+/* ---------- loop ---------- */
+function tick(ts){
+  if(!S.running) return;
+  var dt = Math.min((ts - last)/1000, 0.1);
+  last = ts;
+
+  S.time -= dt;
+  if(S.time <= 0){ S.time = 0; finish(); return; }
+
+  S.spawnIn -= dt;
+  if(S.spawnIn <= 0 && S.orders.length < MAX_ORDERS){
+    var r = RECIPES[Math.random() < 0.35 ? 0 : 1 + (Math.random()<0.5?0:1)];
+    S.orders.push({id:++oid, name:r.name, dish:r.dish, need:r.need.slice(), t:ORDER_T});
+    S.gap = Math.max(4, S.gap - 0.35);
+    S.spawnIn = S.gap;
+  }
+
+  for(var i=S.orders.length-1;i>=0;i--){
+    S.orders[i].t -= dt;
+    if(S.orders[i].t <= 0){ S.orders.splice(i,1); S.missed++; }
+  }
+
+  for(var c=0;c<2;c++){
+    var k = S.cookers[c];
+    if(!k) continue;
+    k.t += dt;
+    if(k.state==='cooking' && k.t >= COOK_T) k.state='done';
+    if(k.state==='done' && k.t >= COOK_T+BURN_T) k.state='burnt';
+  }
+
+  render();
+  raf = requestAnimationFrame(tick);
+}
+
+/* ---------- render ---------- */
+function render(){
+  // clock / hud
+  var m = Math.floor(S.time/60), s = Math.floor(S.time%60);
+  clockEl.textContent = m + ':' + (s<10?'0':'') + s;
+  scoreEl.textContent = S.served + ' served';
+  missedEl.textContent = S.missed + ' lost';
+
+  // tickets
+  var html = '';
+  for(var i=0;i<MAX_ORDERS;i++){
+    var o = S.orders[i];
+    if(!o){ html += '<div class="empty"></div>'; continue; }
+    var pct = Math.max(0, o.t/ORDER_T*100);
+    var cls = 'ticket' + (o.t < ORDER_T*0.4 ? ' warn' : '') + (o.t < 8 ? ' dying' : '');
+    var need = o.need.map(function(n){ return ITEM[n].e; }).join('');
+    html += '<div class="'+cls+'"><div class="dish">'+o.dish+'</div><div class="need">'+need+'</div>'
+          + '<div class="tbar" style="width:'+pct+'%"></div></div>';
+  }
+  rail.innerHTML = html;
+
+  // counter
+  slots.forEach(function(sl,i){
+    var it = S.counter[i];
+    sl.className = 'slot' + (it ? ' has' : '');
+    sl.innerHTML = it ? '<div class="e">'+ITEM[it].e+'</div><div class="t">'+ITEM[it].t+'</div>' : '';
+  });
+
+  // board
+  var be = boardEl.querySelector('.e'), bt = boardEl.querySelector('.t'), bb = boardEl.querySelector('.bar');
+  if(S.board){
+    var ready = S.board.chops >= CHOPS;
+    boardEl.className = 'pad board ' + (ready ? 'ready' : 'full');
+    be.textContent = ITEM[S.board.item].e;
+    bt.textContent = ready ? 'tap to pass up' : 'chop ' + S.board.chops + '/' + CHOPS;
+    bb.style.width = (S.board.chops/CHOPS*100) + '%';
+  } else {
+    boardEl.className = 'pad board';
+    be.textContent = '·';
+    bt.textContent = 'board — grab something';
+    bb.style.width = '0%';
+  }
+
+  // cookers
+  cookEls.forEach(function(ce,i){
+    var k = S.cookers[i], e = ce.querySelector('.e'), t = ce.querySelector('.t'), b = ce.querySelector('.bar');
+    if(!k){
+      ce.className = 'pad cooker';
+      e.textContent = '·'; t.textContent = 'burner ' + (i+1); b.style.width='0%';
+      return;
+    }
+    if(k.state === 'cooking'){
+      ce.className = 'pad cooker on';
+      e.textContent = ITEM[k.item].e; t.textContent = 'cooking';
+      b.style.width = Math.min(100, k.t/COOK_T*100) + '%';
+    } else if(k.state === 'done'){
+      ce.className = 'pad cooker done';
+      e.textContent = ITEM[ITEM[k.item].cook].e; t.textContent = 'ready — take it';
+      b.style.width = Math.max(0, 100 - (k.t-COOK_T)/BURN_T*100) + '%';
+    } else {
+      ce.className = 'pad cooker burnt';
+      e.textContent = '⬛'; t.textContent = 'burnt'; b.style.width='0%';
+    }
+  });
+
+  // plate + hand
+  plateEl.innerHTML = S.plate.length
+    ? S.plate.map(function(p){ return ITEM[p].e; }).join(' ')
+    : '<span class="lbl" style="font:600 9px/1 var(--mono);letter-spacing:.12em;opacity:.4">EMPTY PLATE</span>';
+  handEl.innerHTML = S.hand
+    ? '<span>'+ITEM[S.hand].e+'</span><span class="lbl">'+ITEM[S.hand].t+'</span>'
+    : '<span class="lbl">hands empty</span>';
+}
+
+/* ---------- start / finish ---------- */
+function start(){
+  S = fresh();
+  S.running = true;
+  overlay.classList.add('hidden');
+  render();
+  last = performance.now();
+  raf = requestAnimationFrame(tick);
+}
+
+function finish(){
+  S.running = false;
+  if(raf) cancelAnimationFrame(raf);
+  render();
+  var total = S.served, note;
+  if(S.missed === 0 && total >= 8) note = 'Not one ticket dropped.';
+  else if(total >= 10) note = 'That kitchen was humming.';
+  else if(total >= 5) note = 'Solid service. Watch the burners.';
+  else note = 'Rough night. Keep the counter moving.';
+  ocard.innerHTML =
+    '<div class="sub">service over</div>' +
+    '<div class="big">' + total + '</div>' +
+    '<div class="sub" style="margin-bottom:14px">orders served · ' + S.missed + ' lost</div>' +
+    '<p class="rules" style="text-align:center">' + note + '</p>' +
+    '<button class="btn" id="again">Run it back</button>';
+  document.getElementById('again').addEventListener('click', start);
+  overlay.classList.remove('hidden');
+}
+
+$('#start').addEventListener('click', start);
+
+S = fresh();
+render();
+})();
+</script>
+</body>
+</html>
